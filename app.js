@@ -3,6 +3,11 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var chalk = require('chalk');
 
+/*
+---NOTE---
+Nanti token di front end di simpan di localstorage / cookies
+*/
+
 require('dotenv').config();
 
 var usersRouter = require('./routes/users');
