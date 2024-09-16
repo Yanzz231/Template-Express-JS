@@ -23,5 +23,4 @@ app.listen(port, () => {
     console.log(chalk.green(`Listen to Port ${port}`));
 })
 
-
 module.exports = app;
