@@ -14,12 +14,13 @@ app.use(express.json());
 app.use(express.urlencoded({extended: false}));
 app.use(cookieParser());
 
-app.use('/users', usersRouter);
+app.use('/api/users', usersRouter);
 
 
 const port = process.env.port || 3000
 app.listen(port, () => {
     console.log(chalk.green(`Listen to Port ${port}`));
 })
+
 
 module.exports = app;
