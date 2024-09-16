@@ -65,7 +65,27 @@ const Users = {
     },
 
     logout: async (res, data) => {
-        
+        const {username, email, password} = data
+        var account = ""
+        try {
+            const [email_check] = await db.promise().execute("SELECT * FROM users WHERE email = ?", [email])
+            if (email_check.length === 0) {
+                const [username_check] = await db.promise().execute("SELECT * FROM users WHERE username = ?", [username])
+                if (username_check.length === 0) {
+                    return responseJson(res, "data_not_found", [], "Data Tidak Ada")
+                } else {
+                    account = username
+                }
+            } else {
+                account = email
+            }
+
+            const sqlMessage = 'UPDATE users SET token = ? WHERE email = ?';
+            await db.promise().execute(sqlMessage, [null, account])
+            return responseJson(res, true, {account: account, password: password}, "Berhasil Logout")
+        } catch (err) {
+            return responseJson(res, false, [], err.message)
+        }
     }
 }
 

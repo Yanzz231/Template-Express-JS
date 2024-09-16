@@ -14,9 +14,10 @@ app.use(express.json());
 app.use(express.urlencoded({extended: false}));
 app.use(cookieParser());
 
+// ROUTER
 app.use('/api/users', usersRouter);
 
-
+// LISTINGIN TO PORT
 const port = process.env.port || 3000
 app.listen(port, () => {
     console.log(chalk.green(`Listen to Port ${port}`));
