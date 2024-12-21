@@ -83,7 +83,7 @@ http://localhost:3000
 ```
 
 #### 4. Forget-Password
-**Endpoint**: `/api/users/change-password`
+**Endpoint**: `/api/users/forget-password`
 
 **Method**: POST
 
