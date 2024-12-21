@@ -1185,7 +1185,7 @@ test\\_%|schema||&apos;&apos;||UPDATE|G</Grants>
     </schema>
     <schema id="332" parent="1" name="template">
       <Current>1</Current>
-      <LastIntrospectionLocalTimestamp>2024-09-16.11:59:40</LastIntrospectionLocalTimestamp>
+      <LastIntrospectionLocalTimestamp>2024-09-17.10:17:09</LastIntrospectionLocalTimestamp>
       <CollationName>utf8mb4_general_ci</CollationName>
     </schema>
     <schema id="333" parent="1" name="wibunime">
@@ -1217,7 +1217,7 @@ test\\_%|schema||&apos;&apos;||UPDATE|G</Grants>
       <CollationName>utf8mb4_general_ci</CollationName>
     </table>
     <column id="342" parent="341" name="id">
-      <AutoIncrement>1</AutoIncrement>
+      <AutoIncrement>4</AutoIncrement>
       <NotNull>1</NotNull>
       <Position>1</Position>
       <StoredType>int(11)|0s</StoredType>
@@ -1254,30 +1254,38 @@ test\\_%|schema||&apos;&apos;||UPDATE|G</Grants>
       <Position>7</Position>
       <StoredType>timestamp|0s</StoredType>
     </column>
-    <index id="349" parent="341" name="PRIMARY">
+    <column id="349" parent="341" name="token_verify">
+      <Position>8</Position>
+      <StoredType>varchar(255)|0s</StoredType>
+    </column>
+    <column id="350" parent="341" name="token_reminder">
+      <Position>9</Position>
+      <StoredType>datetime|0s</StoredType>
+    </column>
+    <index id="351" parent="341" name="PRIMARY">
       <ColNames>id</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <index id="350" parent="341" name="username">
+    <index id="352" parent="341" name="username">
       <ColNames>username</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <index id="351" parent="341" name="email">
+    <index id="353" parent="341" name="email">
       <ColNames>email</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <key id="352" parent="341" name="PRIMARY">
+    <key id="354" parent="341" name="PRIMARY">
       <NameSurrogate>1</NameSurrogate>
       <Primary>1</Primary>
       <UnderlyingIndexName>PRIMARY</UnderlyingIndexName>
     </key>
-    <key id="353" parent="341" name="username">
+    <key id="355" parent="341" name="username">
       <UnderlyingIndexName>username</UnderlyingIndexName>
     </key>
-    <key id="354" parent="341" name="email">
+    <key id="356" parent="341" name="email">
       <UnderlyingIndexName>email</UnderlyingIndexName>
     </key>
   </database-model>

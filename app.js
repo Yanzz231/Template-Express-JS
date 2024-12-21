@@ -2,11 +2,16 @@ var express = require('express');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var chalk = require('chalk');
+const cron = require('node-cron');
 
-/*
----NOTE---
-Nanti token di front end di simpan di localstorage / cookies
-*/
+const {func} = require("./helper/function");
+
+cron.schedule('* * * * *', async () => {
+    await func.checkAndExpireOtp('otp_verify', 'otp_reminder', 'OTP Verify');
+    await func.checkAndExpireOtp('otp_password', 'otp_password_reminder', 'OTP Password');
+});
+
+
 
 require('dotenv').config();
 
@@ -19,10 +24,8 @@ app.use(express.json());
 app.use(express.urlencoded({extended: false}));
 app.use(cookieParser());
 
-// ROUTER
 app.use('/api/users', usersRouter);
 
-// LISTINGIN TO PORT
 const port = process.env.port || 3000
 app.listen(port, () => {
     console.log(chalk.green(`Listen to Port ${port}`));

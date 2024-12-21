@@ -1,155 +1,163 @@
 const jwt = require('jsonwebtoken');
-const dotenv = require('dotenv');
 const bcrypt = require('bcrypt');
 
-// DATABASE
-const db = require("../config/connection")
+// PRISMA
+const {PrismaClient} = require('@prisma/client');
+const prisma = new PrismaClient();
+
+require('dotenv').config();
 
 // HELPER
 const {responseJson} = require("../helper/response");
+const {func} = require("../helper/function");
 
 const Users = {
+    register: async (res, data) => {
+        try {
+            const {username, password, email, phone} = data;
+
+            const existingUser = await func.findUnique({username: username})
+            if (existingUser) return responseJson(res, false, [], "Username is already in use.");
+            const existingEmail = await func.findUnique({email: email})
+            if (existingEmail) return responseJson(res, false, [], "Email is already in use.");
+
+            const hashedPassword = await bcrypt.hash(password, 10);
+            const otp_verify = func.generateRandom4Digit();
+            const fiveMinutesLater = new Date(Date.now() + 5 * 60 * 1000);
+
+            const user = await prisma.user.create({
+                data: {
+                    status: "unactive",
+                    username: username,
+                    password: hashedPassword,
+                    email: email,
+                    phone: phone,
+                    token: null,
+                    otp_verify: String(otp_verify),
+                    otp_reminder: fiveMinutesLater,
+                    otp_password: null,
+                    otp_password_reminder: null,
+                }
+            })
+
+            if (user) {
+                await func.sendMail(otp_verify, email)
+                return responseJson(res, true, user, "Berhasil Register")
+            }
+        } catch (err) {
+            return responseJson(res, false, [], err.message)
+        }
+    },
     login: async (res, data) => {
-        // DATA BODY
-        const {username, email, password} = data
-
-        // TEMPORARY DATA
-        var side_data = []
-        var account = ""
-
         try {
-            // CHECKING EMAIL AND USERNAME
-            const [email_check] = await db.promise().execute("SELECT * FROM users WHERE email = ?", [email])
-            if (email_check.length === 0) {
-                const [username_check] = await db.promise().execute("SELECT * FROM users WHERE username = ?", [username])
-                if (username_check.length === 0) {
-                    return responseJson(res, "data_not_found", [], "Data tidak ada")
-                } else {
-                    side_data = username_check
-                    account = username
-                }
-            } else {
-                side_data = email_check
-                account = email
+            const {username, password} = data;
+
+            var findManyData = await func.findMany({username: username})
+            if (findManyData.length === 0) {
+                findManyData = await func.findMany({email: username})
+            }
+            if (findManyData.length === 0) return responseJson(res, "not_found", [], "Not Found")
+
+            const checkPassword = await bcrypt.compare(password, findManyData[0].password)
+            if (!checkPassword) return responseJson(res, "wrong_password", [], "Wrong Password")
+
+            if (findManyData[0].status === "unactive" && findManyData[0].otp_verify === null) {
+                const otp_verify = func.generateRandom4Digit();
+                const fiveMinutesLater = new Date(Date.now() + 5 * 60 * 1000);
+                await prisma.user.update({
+                    where: {email: findManyData[0].email},
+                    data: {otp_reminder: fiveMinutesLater, otp_verify: String(otp_verify)}
+                });
+                await func.sendMail(otp_verify, findManyData[0].email)
+
+                return responseJson(res, "unactive", [], "Not Verify")
             }
 
-            // CHECKING PASSWORD WITH BCRYPT COMPARE
-            const checkPassword = await bcrypt.compare(password, side_data[0].password)
-            if (!checkPassword) {
-                return responseJson(res, "password_incorrect", [], "Password salah")
-            }
+            if (findManyData[0].status === "unactive") return responseJson(res, "unactive", [], "Not Unactive")
 
-            // CONVERST TOKEN WITH JWT
             const token = jwt.sign({}, process.env.JWT_SECRET)
-
-            // SQL UPDATE TOKEN TO JWT CODE
-            const sqlMessage = 'UPDATE users SET token = ? WHERE email = ?';
-            await db.promise().execute(sqlMessage, [token, account])
-
-            return responseJson(res, true, {account: account, password: password, token: token}, "Berhasil Login")
-
+            const user = await prisma.user.update({where: {email: findManyData[0].email}, data: {token: token}})
+            return responseJson(res, true, user, "Berhasil Login")
         } catch (err) {
             return responseJson(res, false, [], err.message)
         }
     },
-
-
-    create: async (res, data) => {
-        // DATA BODY
-        const {username, email, password} = data
-
+    verify: async (res, data) => {
         try {
-            // CHECKING EMAIL
-            const [email_check] = await db.promise().execute('SELECT * FROM users WHERE email = ?', [email])
-            if (email_check.length > 0) {
-                return responseJson(res, false, [], "Email sudah terdaftar")
+            const {email, otp, new_password, type} = data
+            console.log(type)
+            const findData = await func.findMany({email: email})
+            if (findData.length === 0) return responseJson(res, "not_found", [], "Not Found")
+
+            if (type === "verify" && findData[0].status === "unactive") {
+                if (!email || !otp || findData[0].otp_verify === null) return responseJson(res, false, [], "Error Params")
+                if (findData[0].otp_verify !== otp && findData[0].otp_verify !== null) return responseJson(res, "wrong_otp", [], "OTP Wrong")
+
+                const user = await prisma.user.update({
+                    where: {email: email},
+                    data: {status: "active", otp_verify: null, otp_reminder: null}
+                })
+
+                return responseJson(res, true, user, "Berhasil Verify")
             }
 
-            // CONVERT PASSWORD TO BCRYPT CODE
-            const hashPassword = await bcrypt.hash(password, 10)
-            // DEFAULT TOKEN IS NULL
-            const token = null
+            if (type === "forget-password" && findData[0].status === "active") {
+                if (!new_password || !email || !otp || findData[0].otp_password === null) return responseJson(res, false, [], "Error Params")
+                if (findData[0].otp_password !== otp && findData[0].otp_password !== null) return responseJson(res, "wrong_otp", [], "OTP Wrong")
 
-            // INSERT DATA BY DATA BODY
-            const sqlMessage = 'INSERT INTO users (username, email, password, token) VALUES(?, ?, ?, ?)'
-            await db.promise().execute(sqlMessage, [username, email, hashPassword, token])
+                const oldPassword = await bcrypt.compare(new_password, findData[0].password)
+                if (oldPassword) return responseJson(res, "same_password", [], "Same Password")
 
-            return responseJson(res, true, data, "Berhasil Menambahkan Data Users")
+                const hashedPassword = await bcrypt.hash(new_password, 10);
+                const user = await prisma.user.update({
+                    where: {email: email},
+                    data: {otp_password: null, otp_password_reminder: null, password: hashedPassword}
+                })
 
+                return responseJson(res, true, user, "Berhasil Verify")
+            }
+
+            return responseJson(res, false, [], "Error Params")
         } catch (err) {
             return responseJson(res, false, [], err.message)
         }
     },
-
-    logout: async (res, data) => {
-        // DATA BODY
-        const {username, email, password} = data
-
-        // TEMPORARY DATA
-        var account = ""
-
+    forget_password: async (res, data) => {
         try {
-            // CHECKING TOKEN
-            const [token_check] = await db.promise().execute("SELECT * FROM users WHERE token = ?", [token])
-            if (token_check.length === 0) {
-                return responseJson(res, "token_not_found", [], "Token tidak ada")
-            }
+            const {email} = data
 
-            // CHECKING EMAIL AND USERNAME
-            const [email_check] = await db.promise().execute("SELECT * FROM users WHERE email = ?", [email])
-            if (email_check.length === 0) {
-                const [username_check] = await db.promise().execute("SELECT * FROM users WHERE username = ?", [username])
-                if (username_check.length === 0) {
-                    return responseJson(res, "data_not_found", [], "Data tidak ada")
-                } else {
-                    account = username
-                }
-            } else {
-                account = email
-            }
+            const findData = await func.findMany({email: email})
+            if (findData.length === 0) return responseJson(res, "not_found", [], "Not Found")
+            if(findData[0].otp_password !== null)  return responseJson(res, false, [], "Error Params")
 
-            // SQL UPDATE TOKEN TO NULL
-            const sqlMessage = 'UPDATE users SET token = ? WHERE email = ?';
-            await db.promise().execute(sqlMessage, [null, account])
+            const otp_password = func.generateRandom4Digit();
+            const fiveMinutesLater = new Date(Date.now() + 5 * 60 * 1000);
 
-            return responseJson(res, true, {account: account, password: password}, "Berhasil Logout")
+            const user = await prisma.user.update({
+                where: {email: findData[0].email},
+                data: {otp_password: String(otp_password), otp_password_reminder: fiveMinutesLater}
+            })
 
+            await func.sendMail(otp_password, findData[0].email, "forget_password")
+
+            return responseJson(res, true, user, "Send Otp")
         } catch (err) {
             return responseJson(res, false, [], err.message)
         }
     },
-
     change_password: async (res, data) => {
-        // DATA BODY
-        const {token, email, old_password, new_password} = data
-
-
         try {
-            // CHECKING TOKEN
-            const [token_check] = await db.promise().execute("SELECT * FROM users WHERE token = ?", [token])
-            if (token_check.length === 0) {
-                return responseJson(res, "token_not_found", [], "Token tidak ada")
-            }
+            const {email, password, new_password} = data
+            const findData = await func.findMany({email: email})
+            if (findData.length === 0) return responseJson(res, "not_found", [], "Not Found")
 
-            // CHECKING OLD PASSWORLD WITH OLD PASSWORD IN DATABASE
-            const checkPassword = await bcrypt.compare(old_password, token_check[0].password)
-            if(!checkPassword) {
-                return responseJson(res, "passworld_incorret", [], "Password lama salah")
-            }
+            const checkPassword = await bcrypt.compare(password, findData[0].password)
+            if (!checkPassword) return responseJson(res, "wrong_password", [], "Wrong Password")
 
-            // CONVERT PASSWORD TO BCRYPT CODE
-            const hashPassword = await bcrypt.hash(new_password, 10)
+            const hashedPassword = await bcrypt.hash(new_password, 10);
+            const user = await prisma.user.update({where: {email: findData[0].email}, data: {password: hashedPassword}})
 
-            // SQL UPDATE PASSWORD TO NEW PASSWORD
-            const sqlMessage = 'UPDATE users SET password = ? WHERE email = ?'
-            await db.promise().execute(sqlMessage, [hashPassword, email])
-
-            return responseJson(res, true, {
-                email: email,
-                old_password: old_password,
-                new_password: new_password
-            }, `Berhasil mengubah password`)
-
+            return responseJson(res, true, user, "Berhasil Ubah Password")
         } catch (err) {
             return responseJson(res, false, [], err.message)
         }

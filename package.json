@@ -6,6 +6,7 @@
     "start": "node ./bin/www"
   },
   "dependencies": {
+    "@prisma/client": "^6.1.0",
     "bcrypt": "^5.1.1",
     "chalk": "^4.1.2",
     "cookie-parser": "~1.4.4",
@@ -16,6 +17,9 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "~1.9.1",
     "mysql2": "^3.11.3",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.16",
+    "prisma": "^6.1.0",
     "pug": "2.0.0-beta11"
   }
 }
